@@ -1,98 +1,106 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Task Management — Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A REST API built with NestJS, Prisma, and PostgreSQL (hosted on Neon), supporting the Task Management frontend.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Live Demo
+- **API base URL:** https://task-management-backend-production-5e7f.up.railway.app
 
-## Description
+Try it directly: `GET https://task-management-backend-production-5e7f.up.railway.app/tasks`
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Tech Stack
+- NestJS
+- TypeScript
+- Prisma ORM (v5)
+- PostgreSQL (hosted on Neon)
+- class-validator / class-transformer for request validation
 
-## Project setup
+## Features Implemented
+
+### Tasks (`/tasks`)
+- Full CRUD: `GET /tasks`, `GET /tasks/:id`, `POST /tasks`, `PATCH /tasks/:id`, `DELETE /tasks/:id`
+- Fields: title, description, status, priority, assignee, date, labels (JSON array), reporter, teams, projectId
+- Auto-generates an Update log entry whenever a task's priority changes
+- Request validation via DTOs (required fields enforced, extra/unrecognized fields stripped)
+
+### Projects (`/projects`)
+- Full CRUD: `GET /projects`, `GET /projects/:id`, `POST /projects`, `PATCH /projects/:id`, `DELETE /projects/:id`
+- Fields: title, priority, lead, dueDate
+- A project can have many tasks (`Task.projectId` references `Project.id`)
+
+### Subtasks (`/tasks/:taskId/subtasks`)
+- Nested under a specific task
+- `GET`, `POST`, `PATCH /:id`, `DELETE /:id`
+- Fields: task (title text), priority, member, dueDate
+
+### Comments (`/tasks/:taskId/comments`)
+- Nested under a specific task
+- `GET`, `POST`, `DELETE /:id`
+- Supports threaded replies via a self-referencing `parentCommentId` field
+
+### Auth (`/auth/guest`)
+- `POST /auth/guest` creates a guest user record and returns it
+- No JWT or session token is issued — the frontend has no protected routes that require verifying a logged-in identity beyond the initial login screen, so a full token-based auth system was not implemented (see Known Limitations)
+
+## Database Schema
+
+See `prisma/schema.prisma` for full model definitions. Key relationships:
+- `Project` has many `Task`
+- `Task` has many `Subtask`, `Update`, `Comment`
+- `Comment` supports self-referencing replies (`parentCommentId` → `Comment.id`)
+
+**Design decisions worth noting:**
+- `labels` is stored as a JSON string on the `Task` model rather than a separate join table. Postgres can support array columns, but a full `Label` entity with a many-to-many relation was judged to be more complexity than this feature needed at this scope.
+- Originally built and tested against SQLite during development, then migrated to PostgreSQL (Neon) for deployment, since SQLite's file-based storage isn't reliable on most free-tier hosts with ephemeral filesystems.
+
+## Known Limitations / Scope Decisions
+
+- **No JWT/session-based authentication.** `POST /auth/guest` creates a user record but issues no token. Every endpoint is currently open (no auth guard), since the frontend doesn't have a concept of protected routes beyond the login screen itself. A production version of this app would add token issuance and route guards.
+- **No rate limiting or advanced security middleware** — out of scope for this assessment.
+- **Comment `author`** is a plain string field rather than a foreign key to a real authenticated `User` — consistent with the guest-only auth model above.
+- **No automated tests were added beyond NestJS's default scaffolded test files** — manual testing was done via Postman for every endpoint during development.
+
+## Getting Started (Local Development)
 
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
+Create a `.env` file in the project root:
+```
+DATABASE_URL="your-postgresql-connection-string"
+```
 
+Generate the Prisma client and apply migrations:
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npx prisma generate
+npx prisma migrate deploy
 ```
 
-## Run tests
-
+Start the server:
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run start:dev
 ```
+
+API runs on `http://localhost:3001`.
 
 ## Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Deployed on Railway.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+**Build Command:**
+```
+npm install && npx prisma generate && npm run build
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+**Start Command:**
+```
+npm run start:prod
+```
 
-## Resources
+**Environment Variables (set in Railway dashboard):**
+- `DATABASE_URL` — Neon PostgreSQL connection string
 
-Check out a few resources that may come in handy when working with NestJS:
+The server binds to `process.env.PORT` (falling back to `3001` locally) and listens on `0.0.0.0`, as required for containerized deployment platforms.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## Frontend Repository
+[https://github.com/renuka0309/Task-Management.git]
